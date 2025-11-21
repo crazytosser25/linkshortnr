@@ -4,8 +4,8 @@
 
 Само тестовое задание: https://github.com/avito-tech/auto-backend-trainee-assignment
 
-[!NOTE]
-Список Тестовых заданий в Бигтех компании: https://solvit.space/test-tasks
+> [!NOTE]
+> Список Тестовых заданий в Бигтех компании: https://solvit.space/test-tasks
 
 ### Стек
 
