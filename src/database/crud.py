@@ -27,4 +27,4 @@ async def get_long_url_by_slug_from_database(slug: str, session: AsyncSession) -
     query = select(ShortURL).filter_by(slug=slug)
     result = await session.execute(query)
     res: ShortURL | None = result.scalar_one_or_none()
-    return res.long_url if res.long_url else None
+    return res.long_url if res else None

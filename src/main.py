@@ -1,8 +1,10 @@
+import os
+from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from typing import Annotated, AsyncGenerator
 
 from fastapi import Body, FastAPI, status, HTTPException, Depends
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,11 @@ from src.database.models import Base
 
 from src.exceptions import NoLongUrlFoundError, SlugAlreadyExistsError
 from src.service import generate_short_url, get_url_by_slug
+
+
+load_dotenv()
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS")
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL")
 
 
 @asynccontextmanager
@@ -24,8 +31,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["http://localhost:5500"],
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,6 +42,24 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with new_session() as session:
         yield session
 
+
+@app.get("/")
+async def main_page():
+    return FileResponse("static/index.html")
+
+@app.get("/config")
+async def get_config():
+    return {
+        "backendBase": BACKEND_BASE_URL
+    }
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+@app.get("/logo")
+async def photo():
+    return FileResponse("static/logo.png")
 
 @app.post("/short_url")
 async def generate_slug(
@@ -46,7 +71,7 @@ async def generate_slug(
     except SlugAlreadyExistsError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Не удалось сгенерировать slug",
+            detail="Slug can not be generated",
         )
     return {"data": new_slug}
 
@@ -59,5 +84,5 @@ async def redirect_to_url(
     try:
         long_url = await get_url_by_slug(slug, session)
     except NoLongUrlFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не существует")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link doesn't exists")
     return RedirectResponse(url=long_url, status_code=status.HTTP_302_FOUND)
