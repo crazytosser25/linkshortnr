@@ -1,4 +1,4 @@
-from src.service import generate_short_url
+from shortner.service import generate_short_url
 
 
 async def test_generate_short_url(session):

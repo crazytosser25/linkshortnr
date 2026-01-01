@@ -1,19 +1,17 @@
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncGenerator
 
-from fastapi import Body, FastAPI, status, HTTPException, Depends
-from fastapi.responses import RedirectResponse, FileResponse
+
+from fastapi import FastAPI, Depends
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
 
-from src.database.db import engine, new_session
-from src.database.models import Base
-
-
-from src.exceptions import NoLongUrlFoundError, SlugAlreadyExistsError
-from src.service import generate_short_url, get_url_by_slug
+# from src.database.db import new_session
+from src.shortner.router import shortner_router
 
 
 load_dotenv()
@@ -22,10 +20,30 @@ BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+async def lifespan(app: FastAPI):  # pylint: disable=W0613, W0621
+    """Define the lifespan of the FastAPI application.
+
+    This function manages the lifecycle of the FastAPI application, initializing and closing
+    resources such as Redis and FastAPILimiter during the app's lifespan.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+
+    Yields:
+        Allows the FastAPI application to run within this context, managing resources.
+    """
+    global r  # pylint: disable=W0603
+    r = await redis.Redis(
+        host=os.getenv("REDIS_HOST"),
+        port=os.getenv("REDIS_PORT"),
+        db=0, encoding="utf-8",
+        decode_responses=True
+    )
+    await FastAPILimiter.init(r)
+
     yield
+
+    r.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -38,51 +56,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with new_session() as session:
-        yield session
 
-
-@app.get("/")
+# Static page routes
+@app.get("/", dependencies=[Depends(RateLimiter(times=5, seconds=30))])
 async def main_page():
     return FileResponse("static/index.html")
 
-@app.get("/config")
+@app.get("/config", dependencies=[Depends(RateLimiter(times=5, seconds=30))])
 async def get_config():
     return {
         "backendBase": BACKEND_BASE_URL
     }
 
-@app.get("/favicon.ico")
+@app.get("/favicon.ico", dependencies=[Depends(RateLimiter(times=5, seconds=30))])
 async def favicon():
     return FileResponse("static/favicon.ico")
 
-@app.get("/logo")
+@app.get("/logo", dependencies=[Depends(RateLimiter(times=5, seconds=30))])
 async def photo():
     return FileResponse("static/logo.png")
 
-@app.post("/short_url")
-async def generate_slug(
-    long_url: Annotated[str, Body(embed=True)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    try:
-        new_slug = await generate_short_url(long_url, session)
-    except SlugAlreadyExistsError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Slug can not be generated",
-        )
-    return {"data": new_slug}
-
-
-@app.get("/{slug}")
-async def redirect_to_url(
-    slug: str,
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    try:
-        long_url = await get_url_by_slug(slug, session)
-    except NoLongUrlFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link doesn't exists")
-    return RedirectResponse(url=long_url, status_code=status.HTTP_302_FOUND)
+app.include_router(shortner_router)

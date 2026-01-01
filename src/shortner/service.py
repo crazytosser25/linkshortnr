@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.crud import add_slug_to_database, get_long_url_by_slug_from_database
 from src.exceptions import NoLongUrlFoundError, SlugAlreadyExistsError
-from src.shortener import generate_random_slug
+from src.shortner.shortener import generate_random_slug
 
 
 async def generate_short_url(
@@ -15,7 +15,7 @@ async def generate_short_url(
             slug, long_url, session
         )
         return slug
-    
+
     for attempt in range(5):
         try:
             slug = await _generate_slug_and_add_to_db()

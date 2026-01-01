@@ -57,6 +57,14 @@
       transform: scale(3.2);
     }
 
+    .menu_btn {
+      border: none;
+      background-color: transparent;
+      line-height: 0;
+      stroke: #e0e1e4;
+      padding: 10px 0;
+      margin-left: 12px;
+    }
 
     h1 {
       margin-top: 0;
@@ -136,7 +144,8 @@
         <a class="logo" href="/">
           <img src="/logo" alt="Logo">
         </a>
-        <div class="burger">Burger</div>
+        <div class="open_menu_btn">
+        </div>
       </header>
       <div class="main_form box">
 
@@ -147,8 +156,8 @@
           <input id="long-url" type="url" placeholder="https://example.com" required />
           <button type="submit">Shorten</button>
         </form>
+        <div id="error" class="box"></div>
       </div>
-      <div id="error" class="box"></div>
       <div id="result" class="box" hidden>
         <p>Ready! Your short link is:</p>
         <a class="short-link" id="short-link" target="_blank" rel="noopener noreferrer"></a>
@@ -229,6 +238,7 @@
         errorBox.textContent = err.message ?? "Something gone wrong";
       }
     });
+
   </script>
 </body>
 
