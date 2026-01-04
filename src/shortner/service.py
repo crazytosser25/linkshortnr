@@ -1,3 +1,6 @@
+import os
+import secrets
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.crud import add_slug_to_database, get_long_url_by_slug_from_database
@@ -5,12 +8,16 @@ from src.exceptions import NoLongUrlFoundError, SlugAlreadyExistsError
 from src.shortner.shortener import generate_random_slug
 
 
+load_dotenv()
+PASSCODE = os.getenv("PASSCODE")
+
 async def generate_short_url(
         long_url: str,
+        custom_slug: str | None,
         session: AsyncSession,
 ) -> str:
     async def _generate_slug_and_add_to_db() -> str:
-        slug = generate_random_slug()
+        slug = custom_slug or generate_random_slug()
         await add_slug_to_database(
             slug, long_url, session
         )
@@ -25,9 +32,11 @@ async def generate_short_url(
                 raise SlugAlreadyExistsError from ex
     return slug
 
-
 async def get_url_by_slug(slug: str, session: AsyncSession) -> str:
     long_url = await get_long_url_by_slug_from_database(slug, session)
     if not long_url:
         raise NoLongUrlFoundError()
     return long_url
+
+def check_pwd(password: str) -> bool:
+    return secrets.compare_digest(password, PASSCODE)

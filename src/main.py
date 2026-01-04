@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):  # pylint: disable=W0613, W0621
 
     yield
 
-    r.close()
+    await r.close()
 
 
 app = FastAPI(lifespan=lifespan)
